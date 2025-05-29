@@ -19,7 +19,7 @@
       margin-top: 0.8rem;
       display: block;
     }
-    input, button {
+    input {
       width: 100%;
       margin: 0.3rem 0;
       padding: 0.4rem;
@@ -40,6 +40,9 @@
       text-align: center;
       font-weight: bold;
     }
+    .full-width {
+      flex: 1 1 100%;
+    }
     .section {
       margin-top: 1rem;
       padding: 0.5rem 0;
@@ -54,28 +57,45 @@
 </head>
 <body>
   <h2>Pregnancy Due Date Calculator</h2>
-
-  <!-- Outputs -->
-  <div class="result-row">
-    <div class="result-box">
-      <div style="font-size: 0.9rem;">Due Date (LMP)</div>
-      <div id="lmpResult">–</div>
-    </div>
-    <div class="result-box">
-      <div style="font-size: 0.9rem;">Due Date (US)</div>
-      <div id="usResult">–</div>
-    </div>
-    <div class="result-box">
-      <div style="font-size: 0.9rem;">GA Today</div>
-      <div id="ageTodayResult">–</div>
-    </div>
-    <div class="result-box">
-      <div style="font-size: 0.9rem;">GA on Date</div>
-      <div id="customAgeResult">–</div>
+   <!-- LMP-Based Output -->
+  <div class="section">
+    <h3>LMP-Based Calculations</h3>
+    <div class="result-row">
+      <div class="result-box full-width">
+        <div style="font-size: 0.9rem;">Due Date (LMP)</div>
+        <div id="lmpResult">–</div>
+      </div>
+      <div class="result-box">
+        <div style="font-size: 0.9rem;">GA Today (LMP)</div>
+        <div id="ageTodayLMP">–</div>
+      </div>
+      <div class="result-box">
+        <div style="font-size: 0.9rem;">GA on Date (LMP)</div>
+        <div id="customAgeLMP">–</div>
+      </div>
     </div>
   </div>
 
-  <!-- LMP Section -->
+  <!-- US-Based Output -->
+  <div class="section">
+    <h3>Ultrasound-Based Calculations</h3>
+    <div class="result-row">
+      <div class="result-box full-width">
+        <div style="font-size: 0.9rem;">Due Date (US)</div>
+        <div id="usResult">–</div>
+      </div>
+      <div class="result-box">
+        <div style="font-size: 0.9rem;">GA Today (US)</div>
+        <div id="ageTodayUS">–</div>
+      </div>
+      <div class="result-box">
+        <div style="font-size: 0.9rem;">GA on Date (US)</div>
+        <div id="customAgeUS">–</div>
+      </div>
+    </div>
+  </div>
+
+   <!-- Input Section -->
   <div class="section">
     <label>LMP:</label>
     <input type="date" id="lmp">
@@ -86,32 +106,28 @@
     <label>Check GA on Specific Date:</label>
     <input type="date" id="customDate">
 
-    <button onclick="calculateFromLMPAndDate()">Calculate From LMP</button>
-  </div>
-
-  <!-- Ultrasound -->
-  <div class="section">
-    <h3>Or Calculate from Ultrasound</h3>
     <label>US date:</label>
     <input type="date" id="usDate">
+
     <label>GA at US:</label>
     <div style="display: flex; gap: 0.5rem;">
       <input type="number" id="usWeeks" placeholder="wks" min="0" max="40" style="flex: 1;">
       <input type="number" id="usDays" placeholder="days" min="0" max="6" style="flex: 1;">
     </div>
-    <button onclick="calculateFromUltrasound()">Calculate From Ultrasound</button>
   </div>
 
   <script>
-    let globalDueDate = null;
+    let dueDateLMP = null;
+    let dueDateUS = null;
 
     function parseDate(dateStr) {
       const [year, month, day] = dateStr.split("-").map(Number);
-      return new Date(year, month - 1, day, 0, 0, 0, 0);
+      return new Date(year, month - 1, day);
     }
-     function parseDateCustom(dateStr) {
+
+    function parseDateCustom(dateStr) {
       const [year, month, day] = dateStr.split("-").map(Number);
-      return new Date(year, month - 1, day, 23, 59, 59, 0);
+      return new Date(year, month - 1, day, 23, 59, 59);
     }
 
     function formatDate(date) {
@@ -121,58 +137,21 @@
       return `${year}-${month}-${day}`;
     }
 
-    function calculateFromLMPAndDate() {
-      const lmpStr = document.getElementById("lmp").value;
-      const cycleLength = parseInt(document.getElementById("cycleLength").value);
-      if (!lmpStr || isNaN(cycleLength)) {
-        document.getElementById("lmpResult").innerText = "–";
-        return;
-      }
-
-      const lmpDate = parseDate(lmpStr);
-      const adjustment = cycleLength - 28;
-      const dueDate = new Date(lmpDate);
-      dueDate.setDate(dueDate.getDate() + 280 + adjustment);
-
-      globalDueDate = dueDate;
-      document.getElementById("lmpResult").innerText = formatDate(dueDate);
-      document.getElementById("usResult").innerText = "–";
-
-      showGestationalAgeToday();
-      showGestationalAgeOnDate();
+    function calculateGA(dueDate, targetDate) {
+      const msPerDay = 86400000;
+      const daysPregnant = Math.floor((280 * msPerDay - (dueDate - targetDate)) / msPerDay);
+      const weeks = Math.floor(daysPregnant / 7);
+      const days = daysPregnant % 7;
+      return { weeks, days, daysPregnant };
     }
 
-    function calculateFromUltrasound() {
-      const usStr = document.getElementById("usDate").value;
-      const usWeeks = parseInt(document.getElementById("usWeeks").value);
-      const usDays = parseInt(document.getElementById("usDays").value) || 0;
-
-      if (!usStr || isNaN(usWeeks)) {
-        document.getElementById("usResult").innerText = "–";
-        return;
-      }
-
-      const usDate = parseDate(usStr);
-      usDate.setHours(23, 59, 59, 0);
-      const gaDays = (usWeeks * 7) + usDays;
-      const dueDate = new Date(usDate);
-      dueDate.setHours(0, 0, 0, 0);
-      dueDate.setDate(dueDate.getDate() + (280 - gaDays));
-
-      globalDueDate = dueDate;
-      document.getElementById("usResult").innerText = formatDate(dueDate);
-      document.getElementById("lmpResult").innerText = "–";
-      showGestationalAgeToday();
-      showGestationalAgeOnDate();
+    function showGestationalAgeToday(dueDate, resultId) {
+      showGestationalAgeOnDate(dueDate, resultId, new Date());
     }
 
-    function showGestationalAgeToday() {
-      showGestationalAgeOnDate(new Date(), "ageTodayResult");
-    }
-
-    function showGestationalAgeOnDate(dateOverride = null, resultElementId = "customAgeResult") {
-      if (!globalDueDate) {
-        document.getElementById(resultElementId).innerText = "–";
+    function showGestationalAgeOnDate(dueDate, resultId, dateOverride = null) {
+      if (!dueDate) {
+        document.getElementById(resultId).innerText = "–";
         return;
       }
 
@@ -180,24 +159,66 @@
       if (!targetDate) {
         const dateStr = document.getElementById("customDate").value;
         if (!dateStr) {
-          document.getElementById(resultElementId).innerText = "–";
+          document.getElementById(resultId).innerText = "–";
           return;
         }
         targetDate = parseDateCustom(dateStr);
       }
 
-      const msPerDay = 86400000;
-      const daysPregnant = Math.floor((280 * msPerDay - (globalDueDate - targetDate)) / msPerDay);
-      const weeks = Math.floor(daysPregnant / 7);
-      const days = daysPregnant % 7;
+      const { weeks, days, daysPregnant } = calculateGA(dueDate, targetDate);
 
       if (daysPregnant < 0 || weeks > 45) {
-        document.getElementById(resultElementId).innerText = "–";
+        document.getElementById(resultId).innerText = "–";
         return;
       }
 
-      document.getElementById(resultElementId).innerText = weeks + "w " + days + "d";
+      document.getElementById(resultId).innerText = weeks + "w " + days + "d";
     }
+
+    function autoCalculateFromLMP() {
+      const lmpStr = document.getElementById("lmp").value;
+      const cycleLength = parseInt(document.getElementById("cycleLength").value);
+      if (!lmpStr || isNaN(cycleLength)) return;
+
+      const lmpDate = parseDate(lmpStr);
+      const adjustment = cycleLength - 28;
+      const dueDate = new Date(lmpDate);
+      dueDate.setDate(dueDate.getDate() + 280 + adjustment);
+
+      dueDateLMP = dueDate;
+      document.getElementById("lmpResult").innerText = formatDate(dueDate);
+
+      showGestationalAgeToday(dueDateLMP, "ageTodayLMP");
+      showGestationalAgeOnDate(dueDateLMP, "customAgeLMP");
+    }
+
+    function autoCalculateFromUltrasound() {
+      const usStr = document.getElementById("usDate").value;
+      const usWeeks = parseInt(document.getElementById("usWeeks").value);
+      const usDays = parseInt(document.getElementById("usDays").value) || 0;
+      if (!usStr || isNaN(usWeeks)) return;
+
+      const usDate = parseDate(usStr);
+      const gaDays = (usWeeks * 7) + usDays;
+      const dueDate = new Date(usDate);
+      dueDate.setDate(dueDate.getDate() + (280 - gaDays));
+
+      dueDateUS = dueDate;
+      document.getElementById("usResult").innerText = formatDate(dueDate);
+
+      showGestationalAgeToday(dueDateUS, "ageTodayUS");
+      showGestationalAgeOnDate(dueDateUS, "customAgeUS");
+    }
+
+    document.getElementById("lmp").addEventListener("input", autoCalculateFromLMP);
+    document.getElementById("cycleLength").addEventListener("input", autoCalculateFromLMP);
+    document.getElementById("customDate").addEventListener("input", () => {
+      showGestationalAgeOnDate(dueDateLMP, "customAgeLMP");
+      showGestationalAgeOnDate(dueDateUS, "customAgeUS");
+    });
+    document.getElementById("usDate").addEventListener("input", autoCalculateFromUltrasound);
+    document.getElementById("usWeeks").addEventListener("input", autoCalculateFromUltrasound);
+    document.getElementById("usDays").addEventListener("input", autoCalculateFromUltrasound);
   </script>
 </body>
 </html>
